@@ -6,6 +6,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.snakegame.model.Direction
+import com.example.snakegame.model.FoodType
 import com.example.snakegame.model.GameState
 import com.example.snakegame.model.GameStatus
 import com.example.snakegame.model.Position
@@ -19,13 +20,18 @@ class GameViewModel : ViewModel() {
         private set
 
     private var gameJob: Job? = null
+    private var bestScore = 0
 
     fun startGame() {
         val snake = listOf(Position(10, 10), Position(9, 10), Position(8, 10))
+        val food = randomFoodPosition(snake)
         state = GameState(
             snake = snake,
+            previousSnake = snake,
             status = GameStatus.RUNNING,
-            food = randomFoodPosition(snake)
+            food = food,
+            foodType = randomFoodType(),
+            bestScore = bestScore
         )
         startGameLoop()
     }
@@ -64,7 +70,7 @@ class GameViewModel : ViewModel() {
         if (newHead.x < 0 || newHead.x >= GameState.BOARD_SIZE ||
             newHead.y < 0 || newHead.y >= GameState.BOARD_SIZE
         ) {
-            state = state.copy(status = GameStatus.GAME_OVER)
+            endGame()
             gameJob?.cancel()
             return
         }
@@ -74,20 +80,31 @@ class GameViewModel : ViewModel() {
 
         // Moving into the old tail position is valid when the tail advances this tick.
         if (newHead in bodyToCheck) {
-            state = state.copy(status = GameStatus.GAME_OVER)
+            endGame()
             gameJob?.cancel()
             return
         }
 
         val newSnake = listOf(newHead) + if (ateFood) state.snake else state.snake.dropLast(1)
         val newFood = if (ateFood) randomFoodPosition(newSnake) else state.food
-        val newScore = if (ateFood) state.score + 1 else state.score
+        val newFoodType = if (ateFood) randomFoodType() else state.foodType
+        val newScore = if (ateFood) state.score + state.foodType.points else state.score
+        bestScore = maxOf(bestScore, newScore)
 
         state = state.copy(
+            previousSnake = state.snake,
             snake = newSnake,
             food = newFood,
-            score = newScore
+            foodType = newFoodType,
+            score = newScore,
+            bestScore = bestScore,
+            tick = state.tick + 1
         )
+    }
+
+    private fun endGame() {
+        bestScore = maxOf(bestScore, state.score)
+        state = state.copy(status = GameStatus.GAME_OVER, bestScore = bestScore)
     }
 
     private fun randomFoodPosition(snake: List<Position>): Position {
@@ -97,4 +114,6 @@ class GameViewModel : ViewModel() {
 
         return emptyCells.random()
     }
+
+    private fun randomFoodType(): FoodType = FoodType.entries.random()
 }
