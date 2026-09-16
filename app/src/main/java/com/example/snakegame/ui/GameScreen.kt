@@ -7,12 +7,17 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -50,9 +55,9 @@ fun GameScreen(viewModel: GameViewModel = viewModel()) {
         modifier = Modifier
             .fillMaxSize()
             .background(Color(0xFF2E1B12))
-            .padding(8.dp),
+            .padding(10.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.SpaceBetween
+        verticalArrangement = Arrangement.Center
     ) {
         Text(
             text = "Snakerito",
@@ -93,7 +98,7 @@ fun GameScreen(viewModel: GameViewModel = viewModel()) {
             )
 
             if (state.status == GameStatus.IDLE) {
-                OverlayText("Tap to Start\nDrag to steer")
+                OverlayText("Tap to Start\nUse the controls")
             }
 
             if (state.status == GameStatus.GAME_OVER) {
@@ -101,12 +106,10 @@ fun GameScreen(viewModel: GameViewModel = viewModel()) {
             }
         }
 
-        Text(
-            text = "Hold and drag on the arena to steer",
-            color = Color(0xFFFFF3D1),
-            fontSize = 13.sp,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(top = 8.dp, bottom = 2.dp)
+        DirectionPad(
+            enabled = state.status == GameStatus.RUNNING,
+            onDirection = viewModel::changeDirection,
+            modifier = Modifier.padding(top = 10.dp)
         )
     }
 }
@@ -288,6 +291,50 @@ private fun interpolate(from: Position, to: Position, progress: Float): Offset {
         x = from.x + (to.x - from.x) * eased,
         y = from.y + (to.y - from.y) * eased
     )
+}
+
+@Composable
+private fun DirectionPad(
+    enabled: Boolean,
+    onDirection: (Direction) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(7.dp)
+    ) {
+        DirectionButton("^", enabled) { onDirection(Direction.UP) }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            DirectionButton("<", enabled) { onDirection(Direction.LEFT) }
+            Spacer(Modifier.size(54.dp))
+            DirectionButton(">", enabled) { onDirection(Direction.RIGHT) }
+        }
+        DirectionButton("v", enabled) { onDirection(Direction.DOWN) }
+    }
+}
+
+@Composable
+private fun DirectionButton(
+    label: String,
+    enabled: Boolean,
+    onClick: () -> Unit
+) {
+    Button(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = Modifier.size(56.dp, 42.dp),
+        shape = RoundedCornerShape(8.dp),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = Color(0xFFE63946),
+            contentColor = Color.White,
+            disabledContainerColor = Color(0xFF5F3A2B),
+            disabledContentColor = Color(0xFFBFA99E)
+        ),
+        contentPadding = PaddingValues(0.dp)
+    ) {
+        Text(label, fontSize = 18.sp, fontWeight = FontWeight.Black)
+    }
 }
 
 @Composable
