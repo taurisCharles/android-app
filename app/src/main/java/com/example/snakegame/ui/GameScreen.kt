@@ -1,8 +1,5 @@
 package com.example.snakegame.ui
 
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
@@ -11,19 +8,14 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -48,7 +40,6 @@ import com.example.snakegame.model.Position
 import com.example.snakegame.viewmodel.GameViewModel
 import kotlin.math.PI
 import kotlin.math.abs
-import kotlin.math.floor
 import kotlin.math.sin
 
 @Composable
@@ -59,22 +50,22 @@ fun GameScreen(viewModel: GameViewModel = viewModel()) {
         modifier = Modifier
             .fillMaxSize()
             .background(Color(0xFF2E1B12))
-            .padding(16.dp),
+            .padding(8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+        verticalArrangement = Arrangement.SpaceBetween
     ) {
         Text(
             text = "Snakerito",
-            fontSize = 34.sp,
+            fontSize = 28.sp,
             fontWeight = FontWeight.Black,
             color = Color(0xFFFFD166),
-            modifier = Modifier.padding(bottom = 6.dp)
+            modifier = Modifier.padding(top = 4.dp, bottom = 4.dp)
         )
 
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(bottom = 14.dp),
+                .padding(bottom = 8.dp),
             horizontalArrangement = Arrangement.SpaceEvenly
         ) {
             HudChip("Score", state.score.toString())
@@ -102,7 +93,7 @@ fun GameScreen(viewModel: GameViewModel = viewModel()) {
             )
 
             if (state.status == GameStatus.IDLE) {
-                OverlayText("Tap to Start\nFiesta food run")
+                OverlayText("Tap to Start\nDrag to steer")
             }
 
             if (state.status == GameStatus.GAME_OVER) {
@@ -110,10 +101,12 @@ fun GameScreen(viewModel: GameViewModel = viewModel()) {
             }
         }
 
-        DirectionPad(
-            enabled = state.status == GameStatus.RUNNING,
-            onDirection = viewModel::changeDirection,
-            modifier = Modifier.padding(top = 18.dp)
+        Text(
+            text = "Hold and drag on the arena to steer",
+            color = Color(0xFFFFF3D1),
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(top = 8.dp, bottom = 2.dp)
         )
     }
 }
@@ -142,17 +135,6 @@ private fun GameBoard(
     onSwipe: (Direction) -> Unit,
     onTap: () -> Unit
 ) {
-    val animatedTick by animateFloatAsState(
-        targetValue = state.tick.toFloat(),
-        animationSpec = tween(durationMillis = 145, easing = LinearEasing),
-        label = "snakeTick"
-    )
-    val progress = if (state.status == GameStatus.RUNNING) {
-        (animatedTick - floor(animatedTick)).coerceIn(0f, 1f)
-    } else {
-        1f
-    }
-
     Canvas(
         modifier = Modifier
             .fillMaxSize()
@@ -160,20 +142,33 @@ private fun GameBoard(
                 detectTapGestures { onTap() }
             }
             .pointerInput(Unit) {
-                detectDragGestures { _, dragAmount ->
-                    val (dx, dy) = dragAmount
-                    if (abs(dx) > abs(dy)) {
-                        onSwipe(if (dx > 0) Direction.RIGHT else Direction.LEFT)
-                    } else {
-                        onSwipe(if (dy > 0) Direction.DOWN else Direction.UP)
+                var dragOrigin = Offset.Zero
+                detectDragGestures(
+                    onDragStart = { offset -> dragOrigin = offset },
+                    onDrag = { change, dragAmount ->
+                        val dragFromStart = change.position - dragOrigin
+                        val dx = if (abs(dragFromStart.x) > 18f) dragFromStart.x else dragAmount.x
+                        val dy = if (abs(dragFromStart.y) > 18f) dragFromStart.y else dragAmount.y
+
+                        if (abs(dx) < 3f && abs(dy) < 3f) {
+                            return@detectDragGestures
+                        }
+
+                        change.consume()
+
+                        if (abs(dx) > abs(dy)) {
+                            onSwipe(if (dx > 0) Direction.RIGHT else Direction.LEFT)
+                        } else {
+                            onSwipe(if (dy > 0) Direction.DOWN else Direction.UP)
+                        }
                     }
-                }
+                )
             }
     ) {
         val cellSize = size.width / GameState.BOARD_SIZE
         drawFiestaBoard(cellSize)
         drawFood(state.food, state.foodType, cellSize, state.tick)
-        drawSnake(state, cellSize, progress)
+        drawSnake(state, cellSize, 1f)
     }
 }
 
@@ -206,7 +201,7 @@ private fun DrawScope.drawFiestaBoard(cellSize: Float) {
 private fun DrawScope.drawFood(position: Position, type: FoodType, cellSize: Float, tick: Int) {
     val pulse = 1f + sin((tick % 12) / 12f * 2f * PI).toFloat() * 0.06f
     val center = Offset(position.x * cellSize + cellSize / 2f, position.y * cellSize + cellSize / 2f)
-    val radius = cellSize * 0.34f * pulse
+    val radius = cellSize * 0.48f * pulse
 
     when (type) {
         FoodType.TACO -> {
@@ -293,49 +288,6 @@ private fun interpolate(from: Position, to: Position, progress: Float): Offset {
         x = from.x + (to.x - from.x) * eased,
         y = from.y + (to.y - from.y) * eased
     )
-}
-
-@Composable
-private fun DirectionPad(
-    enabled: Boolean,
-    onDirection: (Direction) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Column(
-        modifier = modifier,
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        DirectionButton("^", enabled) { onDirection(Direction.UP) }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            DirectionButton("<", enabled) { onDirection(Direction.LEFT) }
-            Spacer(Modifier.size(56.dp))
-            DirectionButton(">", enabled) { onDirection(Direction.RIGHT) }
-        }
-        DirectionButton("v", enabled) { onDirection(Direction.DOWN) }
-    }
-}
-
-@Composable
-private fun DirectionButton(
-    label: String,
-    enabled: Boolean,
-    onClick: () -> Unit
-) {
-    Button(
-        onClick = onClick,
-        enabled = enabled,
-        modifier = Modifier.size(58.dp, 48.dp),
-        shape = RoundedCornerShape(8.dp),
-        colors = ButtonDefaults.buttonColors(
-            containerColor = Color(0xFFE63946),
-            contentColor = Color.White,
-            disabledContainerColor = Color(0xFF5F3A2B),
-            disabledContentColor = Color(0xFFBFA99E)
-        )
-    ) {
-        Text(label, fontSize = 18.sp, fontWeight = FontWeight.Black)
-    }
 }
 
 @Composable
